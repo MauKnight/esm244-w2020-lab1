@@ -1,0 +1,119 @@
+---
+title: "Lab 1 244"
+author: "Nestor Collado"
+date: "1/9/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Attach packages
+library(tidyverse)
+library(here)
+library(janitor)
+library(kableExtra)
+
+
+```
+
+Read in noaa_fisheries.csv data
+
+```{r}
+#upload file
+us_landings <- read_csv(here::here("data","noaa_fisheries.csv"))
+
+# or "data/noaa_fisheries.csv" but / is no used both in PC and MAC
+#View(us_landings)
+# In AFS name we have this with subcategories of group and species.
+# dollars is number but expressed as characters because it has double commas.
+
+```
+
+Make a tidy version of the file
+
+```{r}
+landings_tidy <- us_landings %>% # ctrl+shift+M
+  janitor::clean_names() %>% 
+  mutate(state = str_to_lower(state),
+         afs_name = str_to_lower(afs_name)) %>% 
+  mutate(dollars_num = parse_number(dollars_usd))
+  
+  
+
+# transmutate only keep the transformed columns. Other option is mutate and, then, select
+# parse number, extract only the numeric part of a obsevration!
+# ?parse_number and check the option to dont eliminate other parts
+
+
+```
+
+Lets just get some information for salmon
+
+```{r}
+salmon_landings <- landings_tidy %>% 
+  mutate(afs_clean = str_remove(afs_name, pattern = "aggregate")) %>% 
+  filter(str_detect(afs_clean, pattern="salmon")) %>% 
+  separate(afs_clean, into=c("group","species"), 
+           sep=",")
+
+# str_detect(salmon_land$afs, pattern="salmon")
+
+
+```
+
+Find some grouped summary data:
+
+Find annual total US landings and dollar value (summing across all states) for each typer of salmon using group by + summarize
+
+```{r}
+salmon_summary <- salmon_landings %>% 
+  group_by(year, species) %>% 
+  summarize(
+    tot_landings=sum(landings_pounds),
+    tot_value=sum(dollars_num)
+  )
+```
+
+Make graph
+
+```{r}
+salmon_landing_graph <- ggplot(salmon_summary, aes(x = year, y = tot_landings)) +
+  geom_line(aes(color=species))
+
+salmon_landing_graph
+
+# salmon_landing_graph <- ggplot(salmon_summary, aes(x = year, y = tot_landings, group = species)) +
+#   geom_line()
+
+# salmon_landing_graph <- ggplot(salmon_summary, aes(x = year, y = tot_landings)) +
+#   geom_line(aes(color=species))
+
+# group species!
+
+```
+
+save the image!
+
+```{r}
+ggsave(plot = salmon_landing_graph,
+       here::here("figures","us_salmon_ah.png"),
+       height = 5,
+       width = 8)
+```
+
+Make a table
+```{r}
+salmon_first_5 <- salmon_summary %>% 
+  head(5)
+
+# Use KABLE
+
+kable(salmon_first_5) %>% 
+  kable_styling(bootstrap_options = "striped",
+                full_width = FALSE)
+
+```
+
